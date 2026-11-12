@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: repoverse-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV=production
+      - DATABASE_URL=postgresql+psycopg://repoverse:repoverse@db:5432/repoverse
+      - REDIS_URL=redis://redis:6379/0
+      - REPO_STORAGE_PATH=/app/repoverse_repos
+      - CORS_ORIGINS=["http://localhost:3000"]
+      - LLM_PROVIDER=none
+    volumes:
+      - repoverse_storage:/app/repoverse_repos
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: repoverse-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: repoverse-db
+    environment:
+      - POSTGRES_USER=repoverse
+      - POSTGRES_PASSWORD=repoverse
+      - POSTGRES_DB=repoverse
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U repoverse -d repoverse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: repoverse-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  repoverse_storage:
