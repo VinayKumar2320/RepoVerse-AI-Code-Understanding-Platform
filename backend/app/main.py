@@ -19,7 +19,7 @@ from backend.app.api.routes import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info(f"Starting {settings.PROJECT_NAME} v{settings.VERSION}...")
+    logger.info(f"Starting {settings.PROJECT_NAME} v{settings.VERSION} (env: {settings.ENV})...")
     await init_db()
     yield
     logger.info("Shutting down RepoVerse...")
@@ -31,10 +31,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS configuration
+# Production-safe CORS configuration supporting Vercel and local origins
+allowed_origins = settings.CORS_ORIGINS if settings.ENV == "production" else ["*"]
+origin_regex = r"https://.*\.vercel\.app" if settings.ENV == "production" else None
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # allow all in development / configured origins
+    allow_origins=allowed_origins,
+    allow_origin_regex=origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

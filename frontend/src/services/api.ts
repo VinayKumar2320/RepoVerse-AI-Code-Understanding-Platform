@@ -12,21 +12,32 @@ import {
   Bookmark
 } from '../types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const RAW_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = RAW_API_BASE.replace(/\/+$/, '');
 
 export async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${url}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Request failed with status ${res.status}`);
+  const fullUrl = `${API_BASE}${url.startsWith('/') ? url : `/${url}`}`;
+  try {
+    const res = await fetch(fullUrl, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers,
+      },
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Request failed with status ${res.status}`);
+    }
+    return res.json();
+  } catch (err: any) {
+    if (err.name === 'TypeError' && err.message.includes('fetch')) {
+      throw new Error(
+        'Unable to connect to RepoVerse API. The backend may be cold-starting on free-tier hosting (allow up to 45s). URL: ' + fullUrl
+      );
+    }
+    throw err;
   }
-  return res.json();
 }
 
 export const api = {
