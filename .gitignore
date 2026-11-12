@@ -38,7 +38,9 @@ yarn-error.log*
 repoverse_repos/
 cache/
 *.db
+*.sqlite
 *.sqlite3
+*.db-journal
 
 # Environment
 .env

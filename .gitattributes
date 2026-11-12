@@ -1,0 +1,10 @@
+# Enforce consistent LF line endings across OS
+* text=auto eol=lf
+
+# Explicit binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
