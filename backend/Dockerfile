@@ -16,7 +16,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy source code and scripts
 COPY backend/ backend/
-COPY analysis/ analysis/
 COPY benchmarks/ benchmarks/
 COPY scripts/ scripts/
 
