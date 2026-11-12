@@ -254,28 +254,45 @@ class CodeKnowledgeGraph:
                 return f"sym::{qname}"
         return None
 
-    def get_view_for_level(self, level: int = 1) -> Tuple[List[GraphNodeSchema], List[GraphEdgeSchema]]:
-        """Return aggregated graph representation filtered to specified abstraction level."""
+    def get_view_for_level(self, level: int = 1, max_nodes: int = 150) -> Tuple[List[GraphNodeSchema], List[GraphEdgeSchema]]:
+        """Return aggregated graph representation filtered to specified abstraction level with performance bounding."""
         nodes = []
         edges = []
 
         valid_node_ids = set()
+        level_candidates = []
+        
         for nid, data in self.graph.nodes(data=True):
             node_level = data.get("level", 1)
             # Level 1: Packages / Directories / Repo
             # Level 2: Files / Modules / External Dependencies
             # Level 3: All symbols (Classes, Functions, Endpoints)
             if node_level <= level:
-                valid_node_ids.add(nid)
-                nodes.append(GraphNodeSchema(
-                    id=nid,
-                    entity_type=data.get("entity_type", "Unknown"),
-                    label=data.get("label", nid),
-                    qualified_name=data.get("qualified_name", nid),
-                    file_path=data.get("file_path"),
-                    level=node_level,
-                    metadata=data.get("metadata", {})
-                ))
+                degree = self.graph.degree(nid)
+                level_candidates.append((degree, nid, data))
+
+        # Prioritize higher-degree nodes if count exceeds max_nodes to ensure 60fps rendering
+        if len(level_candidates) > max_nodes and level == 3:
+            # Preserve all level 1 and 2 nodes
+            core_nodes = [item for item in level_candidates if item[2].get("level", 1) < 3]
+            symbol_nodes = sorted(
+                [item for item in level_candidates if item[2].get("level", 1) == 3],
+                key=lambda x: x[0],
+                reverse=True
+            )[: max_nodes - len(core_nodes)]
+            level_candidates = core_nodes + symbol_nodes
+
+        for _, nid, data in level_candidates:
+            valid_node_ids.add(nid)
+            nodes.append(GraphNodeSchema(
+                id=nid,
+                entity_type=data.get("entity_type", "Unknown"),
+                label=data.get("label", nid),
+                qualified_name=data.get("qualified_name", nid),
+                file_path=data.get("file_path"),
+                level=data.get("level", 1),
+                metadata=data.get("metadata", {})
+            ))
 
         for u, v, data in self.graph.edges(data=True):
             if u in valid_node_ids and v in valid_node_ids:
