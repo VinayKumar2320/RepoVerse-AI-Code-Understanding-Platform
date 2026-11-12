@@ -18,6 +18,20 @@ class CloneService:
         self.storage_root = Path(storage_root or settings.REPO_STORAGE_PATH).resolve()
         self.storage_root.mkdir(parents=True, exist_ok=True)
 
+    def _prune_old_caches(self, max_repos: int = 5):
+        """Prune oldest cached clones to prevent disk exhaustion on cloud instances."""
+        try:
+            entries = [p for p in self.storage_root.iterdir() if p.is_dir()]
+            if len(entries) > max_repos:
+                # Sort by last modification time ascending (oldest first)
+                entries.sort(key=lambda p: p.stat().st_mtime)
+                to_remove = entries[: len(entries) - max_repos]
+                for p in to_remove:
+                    logger.info(f"Evicting old cached repository storage: {p.name}")
+                    shutil.rmtree(p, ignore_errors=True)
+        except Exception as e:
+            logger.warning(f"Error during cache eviction: {e}")
+
     async def get_remote_repo_info(self, owner: str, repo: str) -> Dict[str, Any]:
         """Fetch repository public metadata from GitHub API if available, or generate standard metadata."""
         headers = {
@@ -84,6 +98,8 @@ class CloneService:
         Clones or fetches the repository into secure isolated storage.
         Returns: (repo_dir, resolved_commit_sha, repo_metadata)
         """
+        self._prune_old_caches()
+
         normalized_url, owner, repo = validate_github_url(raw_url)
         meta = await self.get_remote_repo_info(owner, repo)
 
@@ -91,38 +107,45 @@ class CloneService:
         repo_base_dir = self.storage_root / f"{owner}_{repo}"
         repo_base_dir.mkdir(parents=True, exist_ok=True)
 
-        # Clone into a canonical directory
         git_dir = repo_base_dir / "repo"
 
         # Safe non-blocking execution in threadpool
         loop = asyncio.get_event_loop()
 
         def do_git():
-            if not (git_dir / ".git").exists():
-                logger.info(f"Cloning {normalized_url} to {git_dir}...")
-                clone_args = [
-                    "git", "clone",
-                    "--no-tags",
-                    "--single-branch",
-                    "--branch", target_branch,
-                    "--depth", "50",
-                    normalized_url,
-                    str(git_dir)
-                ]
-                self._run_git_cmd(clone_args, timeout=settings.CLONE_TIMEOUT_SECONDS)
-            else:
-                logger.info(f"Repository already cloned in {git_dir}. Fetching updates...")
-                self._run_git_cmd(["git", "fetch", "--depth", "50", "origin", target_branch], cwd=git_dir)
+            try:
+                if not (git_dir / ".git").exists():
+                    logger.info(f"Cloning {normalized_url} to {git_dir}...")
+                    clone_args = [
+                        "git", "clone",
+                        "--no-tags",
+                        "--single-branch",
+                        "--branch", target_branch,
+                        "--depth", "25",
+                        normalized_url,
+                        str(git_dir)
+                    ]
+                    self._run_git_cmd(clone_args, timeout=settings.CLONE_TIMEOUT_SECONDS)
+                else:
+                    logger.info(f"Repository already cloned in {git_dir}. Fetching updates...")
+                    self._run_git_cmd(["git", "fetch", "--depth", "25", "origin", target_branch], cwd=git_dir)
 
-            # Checkout specific commit or branch
-            if commit_sha:
-                logger.info(f"Checking out commit {commit_sha}...")
-                self._run_git_cmd(["git", "checkout", commit_sha], cwd=git_dir)
-            else:
-                self._run_git_cmd(["git", "checkout", target_branch], cwd=git_dir)
+                # Checkout specific commit or branch
+                if commit_sha:
+                    logger.info(f"Checking out commit {commit_sha}...")
+                    self._run_git_cmd(["git", "checkout", commit_sha], cwd=git_dir)
+                else:
+                    self._run_git_cmd(["git", "checkout", target_branch], cwd=git_dir)
 
-            current_sha = self._run_git_cmd(["git", "rev-parse", "HEAD"], cwd=git_dir)
-            return current_sha
+                current_sha = self._run_git_cmd(["git", "rev-parse", "HEAD"], cwd=git_dir)
+                return current_sha
+            except Exception as e:
+                # Cleanup corrupted clone dir if failed
+                if (git_dir / ".git").exists():
+                    pass
+                elif git_dir.exists():
+                    shutil.rmtree(git_dir, ignore_errors=True)
+                raise e
 
         current_sha = await loop.run_in_executor(None, do_git)
 
@@ -153,7 +176,7 @@ class CloneService:
                             f"Repository size exceeds maximum limit of {settings.MAX_REPO_SIZE_MB}MB."
                         )
 
-    def get_commit_history(self, repo_dir: Path, max_count: int = 30) -> list[Dict[str, Any]]:
+    def get_commit_history(self, repo_dir: Path, max_count: int = 25) -> list[Dict[str, Any]]:
         """Extract recent commit history log."""
         log_format = "%H%x1f%s%x1f%an%x1f%ad%x1f%h"
         raw_log = self._run_git_cmd(
