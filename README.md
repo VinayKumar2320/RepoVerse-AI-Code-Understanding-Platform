@@ -1,6 +1,11 @@
 # RepoVerse — Interactive GitHub Repository Digital Twin & AI Code Understanding Platform
 
-> **Understand Code. Explore Architecture. Travel Through Git History.**
+[![RepoVerse CI](https://github.com/VinayKumar2320/RepoVerse-AI-Code-Understanding-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/VinayKumar2320/RepoVerse-AI-Code-Understanding-Platform/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://python.org)
+[![Next.js 14](https://img.shields.io/badge/Next.js-14.2-black.svg)](https://nextjs.org)
+
+> **Tagline:** *Understand Code. Explore Architecture. Travel Through Git History.*
 
 RepoVerse transforms any public GitHub repository into a versioned, navigable architectural digital twin with source-grounded code intelligence and adaptive multi-tier learning.
 
@@ -101,10 +106,10 @@ GitHub Repository URL / Local Git
 ## 4. Benchmark & Evaluation Results
 
 Tested on macOS ARM64 (Apple Silicon):
-- **Python AST Parser**: 0.131 ms per file (100% ground-truth symbol recall).
-- **Tree-sitter TypeScript Parser**: 0.212 ms per file.
-- **Graph Construction**: 0.088 ms for full modular graph assembly.
-- **Tarjan SCC & Centrality**: 57.79 ms for complete PageRank and instability metrics.
+- **Python AST Parser**: 0.126 ms per file (100% ground-truth symbol recall).
+- **Tree-sitter TypeScript Parser**: 0.203 ms per file.
+- **Graph Construction**: 0.085 ms for full modular graph assembly.
+- **Tarjan SCC & Centrality**: 32.76 ms for complete PageRank and instability metrics.
 
 ---
 
@@ -147,7 +152,17 @@ Open `http://localhost:3000` in your browser.
 
 ---
 
-## 6. Security & Ingestion Safeguards
+## 6. Free-Tier Cloud Deployment ($0/month)
+
+- **Backend**: Deployed on [Render](https://render.com) using the included `render.yaml` blueprint.
+- **Frontend**: Deployed on [Vercel](https://vercel.com) connecting to Render API via `NEXT_PUBLIC_API_URL`.
+- **Database**: Ephemeral SQLite by default, or persistent serverless PostgreSQL on [Neon.tech](https://neon.tech).
+
+Detailed instructions are available in [docs/deployment.md](docs/deployment.md).
+
+---
+
+## 7. Security & Ingestion Safeguards
 
 - **SSRF Defense**: Strict hostname allowlisting (`github.com` only); private IP ranges and alternate URI schemes are rejected.
 - **Command Injection Prevention**: All Git commands execute via structured argument lists; `shell=True` is prohibited.
@@ -156,5 +171,8 @@ Open `http://localhost:3000` in your browser.
 
 ---
 
-## 7. License
+## 8. Repository Link
+- GitHub: [https://github.com/VinayKumar2320/RepoVerse-AI-Code-Understanding-Platform](https://github.com/VinayKumar2320/RepoVerse-AI-Code-Understanding-Platform)
+
+## 9. License
 MIT
