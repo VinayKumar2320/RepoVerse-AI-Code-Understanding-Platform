@@ -1,4 +1,4 @@
-name: RepoVerse CI
+name: RepoVerse Full-Stack CI
 
 on:
   push:
@@ -6,47 +6,64 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend-test:
+    name: Backend Tests & Benchmarks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: "pip"
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
           pip install greenlet
 
-      - name: Run Backend Tests
+      - name: Run Backend Pytest Suite
         run: |
-          pytest backend/tests
+          pytest backend/tests -v
 
-      - name: Run Benchmarks & Ground-Truth Evaluations
+      - name: Run AST Parser Benchmark
         run: |
           python scripts/benchmark_parser.py
+
+      - name: Run Knowledge Graph Benchmark
+        run: |
           python scripts/benchmark_graph.py
+
+      - name: Run Grounded Explanations Evaluation
+        run: |
           python scripts/evaluate_explanations.py
 
   frontend-build:
+    name: Frontend Build & Verification
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install Frontend Dependencies
         working-directory: ./frontend
         run: npm ci
 
-      - name: Build Next.js
+      - name: Build Next.js Production Bundle
         working-directory: ./frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
         run: npm run build
